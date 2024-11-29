@@ -1,8 +1,11 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import math
+from scipy.io import wavfile
+from scipy.fft import fft, ifft
+from scipy.signal import convolve, unit_impulse, ShortTimeFFT
 
-#parameters
+# #parameters
 theta = 0 
 M = 7      
 v = 340  
@@ -30,58 +33,131 @@ Rn = np.eye(M,M)*sigma_n**2
 Rx = R + Rn
 print(A)
 
-#th_range is a vector of angles on which the spatial response is to be calculated
 def matchedbeamformer(Rx, th_range, M, d, v, f0):
     spatial_response = []
     for theta in th_range:
         steering_vector = a_lin(theta, M, d, v, f0)
-        response = np.abs(steering_vector.conj().T @ Rx @ steering_vector).item()  # Ensure scalar
+        response = steering_vector.conj().T @ Rx @ steering_vector
         normalized_response = response / M
         spatial_response.append(normalized_response)  
     
-    return np.array(spatial_response)  # Convert to 1D array
+    return spatial_response
         
 
-th_range = np.linspace(-np.pi/2, np.pi/2,5000)
+th_range = np.linspace(-np.pi/2, np.pi/2, 5000)
 spatial_response = matchedbeamformer(Rx, th_range, M, d, v, f0)
 
+# plt.figure(figsize=(10, 6))
+# plt.plot(np.degrees(th_range), spatial_response)
+# plt.title('Spatial Response for Matched Beamformer')
+# plt.xlabel('Angle $\\theta$ (degrees)')
+# plt.ylabel('Normalized $P_y(\\theta)$ (in terms of $M$)')
+# plt.grid(True)
+# plt.show()
+
+
+def mvdr(Rx, th_range, M, d, v, f0):
+   spatial_response2 = []
+   inv_Rx = np.linalg.inv(Rx)  
+
+   for theta in th_range:
+        steering_vector = a_lin(theta, M, d, v, f0)
+        numerator = 1
+        denominator = steering_vector.conj().T @ inv_Rx @ steering_vector
+        iloveee = numerator / denominator
+        spatial_response2.append(iloveee)
+   spatial_response2 = np.array(spatial_response2)
+   return spatial_response2
+   
+th_range = np.linspace(-np.pi/2, np.pi/2,5000)
+spatial_response2 = mvdr(Rx, th_range, M, d, v, f0)
+#XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+#[part for theta1]
+theta_1 = theta0[1]
+inv_Rx = np.linalg.inv(Rx)  
+response1 = []
+
+
+steering_vector1 = a_lin(theta_1 , M, d, v, f0)
+numerator = 1
+denominator2 = steering_vector1.conj().T @ inv_Rx @ steering_vector1
+iloveee1 = numerator / denominator2
+response1.append(iloveee1)
+
+   
+print(f'Response to second source (theta = {theta_1}°): {iloveee1:.6f}')
+
 plt.figure(figsize=(10, 6))
-plt.plot(np.degrees(th_range), spatial_response)
-plt.title('Spatial Response for Matched Beamformer')
+plt.plot(np.degrees(th_range), spatial_response2)
+plt.title('Spatial Response for MVDR')
+plt.xlabel('Angle $\\theta$ (degrees)')
+plt.ylabel('Normalized $P_y(\\theta)$ (in terms of $M$)')
+plt.grid(True)
+plt.show()
+   
+
+def p_y(theta, theta_0, M, d, v, f0):
+    a_theta = a_lin(theta, M, d, v, f0)
+    a_theta_reference = a_lin(theta_0, M, d, v, f0)
+   
+    a_theta_H = np.conjugate(a_theta).T
+    
+    p_y = (np.abs(np.matmul(a_theta_H, a_theta_reference))**2) 
+    return p_y
+
+theta_vals = np.linspace(-np.pi / 2, np.pi / 2, 1000)  
+theta_0 = 0  
+
+p_y_vals = [p_y(theta, theta_0, M, d, v, f0) for theta in theta_vals]
+
+plt.figure(figsize=(10, 6))
+plt.plot(np.degrees(theta_vals), p_y_vals)
+plt.title('Spatial Response for Fixed Beamformer')
 plt.xlabel('Angle $\\theta$ (degrees)')
 plt.ylabel('Normalized $P_y(\\theta)$ (in terms of $M$)')
 plt.grid(True)
 plt.show()
 
 
-def mvdr(Rx, th_range, M, d, v, f0):
-
-    return
-   
+# assignment 6.5.2
 
 
 
-
-
-
-# def p_y(theta, theta_0, M, d, v, f0):
-#     a_theta = a_lin(theta, M, d, v, f0)
-#     a_theta_reference = a_lin(theta_0, M, d, v, f0)
-   
-#     a_theta_H = np.conjugate(a_theta).T
+def narrowband_rX(data, fs, nperseg, noverlap):
     
-#     p_y = (np.abs(np.matmul(a_theta_H, a_theta_reference))**2) 
-#     return p_y
+    win = ('gaussian', 1e-2 * fs)  
+    SFT = ShortTimeFFT.from_window(win, fs, nperseg, noverlap, scale_to='magnitude', phase_shift=None)
+    f_bins = SFT.f
+    #compute stft for all micrphone recordings
+    Sx_all = []
+    num_mics = data.shape[0]
+    num_samples = data.shape[1]
 
-# theta_vals = np.linspace(-np.pi / 2, np.pi / 2, 1000)  
-# theta_0 = 0  
+    for i in range(data.shape[0]):
+        Sx = SFT.stft(data[i, :])
+        Sx_all.append(Sx)
 
-# p_y_vals = [p_y(theta, theta_0, M, d, v, f0) for theta in theta_vals]
 
-# plt.figure(figsize=(10, 6))
-# plt.plot(np.degrees(theta_vals), p_y_vals)
-# plt.title('Spatial Response for Fixed Beamformer')
-# plt.xlabel('Angle $\\theta$ (degrees)')
-# plt.ylabel('Normalized $P_y(\\theta)$ (in terms of $M$)')
-# plt.grid(True)
-# plt.show()
+    # Convert the list into a 3D NumPy array: (mics x frequency bins x time slices)
+    Sx_all = np.array(Sx_all)    
+    print(Sx_all.shape)  # Should print (num_mics, frequency_bins, time_slices)
+
+
+
+
+
+
+    
+
+
+    
+   
+    return Sx, f_bins
+
+
+nperseg = 256
+noverlap = 0
+data = np.random.randn(4, 10000)
+fs = 16000
+aba = narrowband_rX(data, fs, nperseg, noverlap)
+
