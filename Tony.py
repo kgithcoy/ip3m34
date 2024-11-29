@@ -4,7 +4,7 @@ from scipy.io import wavfile        #For using .wav type datas
 from IPython.display import Audio   #For audio display if needed
 
 # Scipy modules
-from scipy.signal import stft
+from scipy.signal import stft, TransferFunction, lsim
 from scipy import signal
 #from scipy.fft import fft, ifft    #If we have this, then np.fft.abcd in codes can be changed to abcd
 from scipy.signal import butter, filtfilt
@@ -260,6 +260,32 @@ def spectogram(x, Fs, t_interest, freqinterest, nperseg=256, noverlap=128):
         plt.ylim(freqinterest)
     plt.show()
     
+def pole_pairs(duration_ms, freq_hz, amplitude, onset_delay_ms, Fs, T_total):
+
+    t = np.linspace(0, T_total, int(Fs * T_total))
+    duration = duration_ms / 1000
+    onset_delay = onset_delay_ms / 1000
+    omega_0 = 2 * np.pi * freq_hz
+    a = 1 / duration
 
 
+    num = [omega_0]
+    den = [1, 2 * a, a ** 2 + omega_0 ** 2]
+    
+    system = TransferFunction(num, den)
+
+    impulse = np.zeros_like(t)
+    impulse[int(Fs * onset_delay)] = 1
+
+    # N = int(Fs * duration)
+    # Ns = 10
+    # s = np.concatenate((np.random.randn(Ns), np.zeros(N - Ns)))
+    # impulse[int(Fs * onset_delay):int(Fs * onset_delay) + N] = s
+    
+
+    t_out, h_out, _ = lsim(system, U=impulse, T=t)
+
+    h_out = amplitude * h_out
+
+    return t_out, h_out
     
