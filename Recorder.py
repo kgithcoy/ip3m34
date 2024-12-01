@@ -5,6 +5,7 @@ import sounddevice as sd
 import numpy as np
 import threading
 
+
 class AudioRecorderApp:
     def __init__(self, root, channels=1):
         self.root = root
