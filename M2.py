@@ -44,10 +44,6 @@ shannon_signal = shannon_energy(downsampled_data_normalize)
 SEE = zero_phase_butter_filter(shannon_signal, Fs_new, order, 15, "low") # Apply lowpass-(zero-phase)filtering at 15Hz
 SEE = normalize(SEE)
 
-
-
-
-
 # Plots:
 spectogram(downsampled_data_normalize, Fs_new, 0, 0)
 wavfile_plot(shannon_signal, Fs_new, "Shannon Energy",[[0,10],0],0)
